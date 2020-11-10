@@ -10,8 +10,11 @@ const particles = [];
 let count = 0;
 let sum = [0, 0, 0];
 
+let xDamp = 6;
+let yDamp = 10;
+
 // modified from https://github.com/CodingTrain/website/blob/main/Tutorials/P5JS/p5.js_video/11.6_p5.js_painting/particle.js
-function Particle(x, y, img) {
+function Particle(x, y) {
   const startColor = img.get(x, y);
   this.x = x;
   this.y = y;
@@ -32,7 +35,7 @@ function Particle(x, y, img) {
 
     // const distX = mouseX - this.x;
     // const distY = mouseY - this.y;
-    // const d = dist(mouseX, mouseY, this.x, this.y);
+    const d = dist(mouseX, mouseY, this.x, this.y);
     // if (d < 25 && d > 10) {
     //   this.w -= 20;
     //   this.h -= 20;
@@ -46,9 +49,10 @@ function Particle(x, y, img) {
     // this.w *= distX / width;
     // this.h *= distY / height;
 
-    this.x += (noiseVal * (mouseX / width - 0.5) * brightness(startColor)) / 1;
+    this.x +=
+      (noiseVal * (mouseX / width - 0.5) * brightness(startColor)) / xDamp;
     this.y +=
-      (noiseVal * (mouseY / height - 0.5) * brightness(startColor)) / 10;
+      (noiseVal * (mouseY / height - 0.5) * brightness(startColor)) / yDamp;
 
     if (this.x > width) {
       this.x = 0;
@@ -85,10 +89,20 @@ function Particle(x, y, img) {
 let randomSquare1;
 let randomSquare2;
 let randomSquare3;
-
+let input;
 function setup() {
+  // input = createFileInput(handleFile);
   createCanvas(CANVAS_W, CANVAS_H);
   getNewImage();
+}
+
+function handleFile(file) {
+  // print(file);
+  if (file.type === "image") {
+    img = createImg(file.data, "");
+    img.hide();
+    setImage(img);
+  }
 }
 
 function draw() {
@@ -118,32 +132,34 @@ function mousePressed() {
   getNewImage();
 }
 
+const setImage = (newImg) => {
+  img = newImg;
+  clear();
+  if (DRAW_IMAGE) {
+    image(img, 0, 0, width, height);
+  }
+  // count = 0;
+  for (var i = 0; i < PARTICLE_COUNT; i++) {
+    particles[i] = new Particle(random(width), random(height));
+  }
+
+  const randomX1 = Math.floor(random(img.width - 20));
+  const randomY1 = Math.floor(random(img.width - 20));
+
+  const randomX2 = Math.floor(random(img.width - 20));
+  const randomY2 = Math.floor(random(img.width - 20));
+
+  const randomX3 = Math.floor(random(img.width - 20));
+  const randomY3 = Math.floor(random(img.width - 20));
+
+  randomSquare1 = img.get(randomX1, randomY1, 20, 20);
+  randomSquare2 = img.get(randomX2, randomY2, 20, 20);
+  randomSquare3 = img.get(randomX3, randomY3, 20, 20);
+};
+
 const getNewImage = () => {
   const URL = "https://source.unsplash.com/random/";
   const w = Math.floor(random(CANVAS_W - 50, CANVAS_W + 50));
   const h = Math.floor(random(CANVAS_W - 50, CANVAS_W + 50));
-  loadImage(`${URL}${w}x${h}`, (newImg) => {
-    img = newImg;
-    clear();
-    if (DRAW_IMAGE) {
-      image(img, 0, 0, width, height);
-    }
-    // count = 0;
-    for (var i = 0; i < PARTICLE_COUNT; i++) {
-      particles[i] = new Particle(random(width), random(height), img);
-    }
-
-    const randomX1 = Math.floor(random(img.width - 20));
-    const randomY1 = Math.floor(random(img.width - 20));
-
-    const randomX2 = Math.floor(random(img.width - 20));
-    const randomY2 = Math.floor(random(img.width - 20));
-
-    const randomX3 = Math.floor(random(img.width - 20));
-    const randomY3 = Math.floor(random(img.width - 20));
-
-    randomSquare1 = img.get(randomX1, randomY1, 20, 20);
-    randomSquare2 = img.get(randomX2, randomY2, 20, 20);
-    randomSquare3 = img.get(randomX3, randomY3, 20, 20);
-  });
+  loadImage(`${URL}${w}x${h}`, setImage);
 };
