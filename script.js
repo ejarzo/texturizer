@@ -3,6 +3,8 @@ const CANVAS_W = 800;
 const CANVAS_H = 800;
 
 const DRAW_IMAGE = false;
+const SHOW_BACKGROUND = true;
+const SHOW_LINES = true;
 
 let img;
 const particles = [];
@@ -24,7 +26,7 @@ function Particle(x, y) {
   // sum[1] += startColor[1];
   // sum[2] += startColor[2];
 
-  this.a = brightness(startColor) > 50 ? 3 : 0;
+  this.a = brightness(startColor) > 20 ? 3 : 0;
   // this.r = map(startColor[2], 0, 255, 1, 100);
 
   this.update = function () {
@@ -75,6 +77,21 @@ function Particle(x, y) {
     noStroke();
     const c = startColor;
     fill(c[0], c[1], c[2], this.a);
+    // console.log(c);
+    const thresh = 100;
+    // rectMode(CENTER);
+    const isRExtreme = c[0] > 255 - thresh && c[1] < thresh && c[2] < thresh;
+    const isGExtreme = c[1] > 255 - thresh && c[0] < thresh && c[2] < thresh;
+    const isBExtreme = c[2] > 255 - thresh && c[1] < thresh && c[2] < thresh;
+    if (
+      SHOW_LINES &&
+      vertexCount < 100 &&
+      (isRExtreme || isGExtreme || isBExtreme)
+    ) {
+      // console.log("adding vertex");
+      vertex(this.x + this.w / 2, this.y + this.h / 2);
+      vertexCount++;
+    }
     // const x = map(startColor[0], 0, 255, 0, width);
     // ellipse(this.x, this.y, this.r, this.r);
     // translate(width/2, height/2);
@@ -82,7 +99,9 @@ function Particle(x, y) {
     // if (c[0] > 150) {
     //   image(randomSquare1, this.x, this.y, 20, 20);
     // }
-    rect(this.x, this.y, this.w, this.h);
+    if (SHOW_BACKGROUND) {
+      rect(this.x, this.y, this.w, this.h);
+    }
   };
 }
 
@@ -90,6 +109,7 @@ let randomSquare1;
 let randomSquare2;
 let randomSquare3;
 let input;
+
 function setup() {
   // input = createFileInput(handleFile);
   createCanvas(CANVAS_W, CANVAS_H);
@@ -105,7 +125,15 @@ function handleFile(file) {
   }
 }
 
+let vertexCount = 0;
+// let prevPos = [0, 0];
 function draw() {
+  background(20, 0, 20, 1);
+  if (SHOW_LINES) {
+    vertexCount = 0;
+    beginShape();
+  }
+
   // if (randomSquare1) {
   //   for (let i = 0; i < 800; i += 20) {
   //     for (let j = 0; j < 800; j += 20) {
@@ -115,15 +143,35 @@ function draw() {
   //     }
   //   }
   // }
-  background(20, 0, 20, 1);
   // sum = [0, 0, 0];
   for (let i = 0; i < particles.length; i++) {
     particles[i].show();
     particles[i].update();
     // blendMode(OVERLAY);
   }
+  if (SHOW_LINES) {
+    fill(255, 0);
+    strokeWeight(2);
+    stroke(255, 10);
+    endShape(CLOSE);
+  }
 
-  // console.log(sum.map((x) => x / particles.length));
+  // const noiseVal = noise(prevPos[0]) - 0.5;
+  // noiseSeed(1);
+  // const noiseVal2 = noise(prevPos[1]) - 0.5;
+  // console.log(noiseVal);
+  // console.log(noiseVal2);
+  // const rX = noiseVal * 10;
+  // const rY = noiseVal2 * 10;
+  // strokeWeight(2);
+  // stroke(0);
+  // push();
+  // translate(width / 2, height / 2);
+  // line(prevPos[0], prevPos[1], rX, rY);
+  // pop();
+
+  // prevPos = [rX, rY];
+  // // console.log(sum.map((x) => x / particles.length));
 
   count++;
 }
@@ -135,6 +183,11 @@ function mousePressed() {
 const setImage = (newImg) => {
   img = newImg;
   clear();
+  // push();
+  // fill(255);
+  // background(255);
+  // pop();
+
   if (DRAW_IMAGE) {
     image(img, 0, 0, width, height);
   }
@@ -158,8 +211,15 @@ const setImage = (newImg) => {
 };
 
 const getNewImage = () => {
+  console.log("loading new image...");
   const URL = "https://source.unsplash.com/random/";
   const w = Math.floor(random(CANVAS_W - 50, CANVAS_W + 50));
   const h = Math.floor(random(CANVAS_W - 50, CANVAS_W + 50));
   loadImage(`${URL}${w}x${h}`, setImage);
 };
+
+function keyPressed() {
+  if (key === "s") {
+    save("texturizer.png");
+  }
+}
