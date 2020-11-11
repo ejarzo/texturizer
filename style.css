@@ -2,6 +2,7 @@ html,
 body {
   margin: 0;
   height: 100%;
+  font-family: "Roboto Mono", monospace;
 }
 
 body {
@@ -14,4 +15,21 @@ body {
 canvas {
   box-shadow: 0 0 200px -20px rgba(0, 0, 0, 0.8);
   background: white;
+  /* cursor: none; */
+}
+
+.info {
+  color: #eee;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  padding: 5px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.info:hover {
+  opacity: 1;
+}
+.info a {
+  color: #eee;
 }
