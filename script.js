@@ -1,12 +1,15 @@
 const PARTICLE_COUNT = 2000;
 const CANVAS_W = 800;
 const CANVAS_H = 800;
+const DEBUG_OSC = false;
 
 const DRAW_IMAGE = false;
 const SHOW_BACKGROUND = true;
 const SHOW_LINES = true;
 
 let img;
+let isLoading = false;
+let isPlaying = true;
 const particles = [];
 
 let count = 0;
@@ -15,17 +18,63 @@ let sum = [0, 0, 0];
 let xDamp = 6;
 let yDamp = 10;
 
+const oscCount = 5;
+const oscs = [];
+
+const compressor = new p5.Compressor();
+const reverb = new p5.Reverb();
+
+compressor.disconnect();
+compressor.connect(reverb);
+
+const scale = teoria.note("a").scale("majorpentatonic");
+
 // modified from https://github.com/CodingTrain/website/blob/main/Tutorials/P5JS/p5.js_video/11.6_p5.js_painting/particle.js
 function Particle(x, y) {
   const startColor = img.get(x, y);
   this.x = x;
   this.y = y;
-  // this.x = map(startColor[0], 0, 255, 0, width);
-  // this.r = map(startColor[2], 0, 255, 1, 10);
-  // sum[0] += startColor[0];
-  // sum[1] += startColor[1];
-  // sum[2] += startColor[2];
+  this.osc = null;
+  this.noiseAmt = 10;
 
+  if (oscs.length < oscCount) {
+    this.filter = new p5.LowPass();
+    this.filter.disconnect();
+    this.isNoise = saturation(startColor) < 10;
+    // const type = brightness(startColor) > 60 ? "square" : "sine";
+
+    // const osc =
+    //   saturation(startColor) > 5 ? new p5.Oscillator(type) : new p5.Noise();
+
+    const type = "triangle";
+    const osc = this.isNoise ? new p5.Noise("pink") : new p5.Oscillator(type);
+    this.osc = osc;
+    this.osc.disconnect();
+    this.osc.start();
+
+    // const randIndex = Math.floor(random(scale.notes().length));
+
+    const freqIndex = Math.floor(
+      map(this.y, 0, height, 0, scale.notes().length * 4)
+    );
+    if (!this.isNoise) {
+      this.osc.freq(scale.get(freqIndex).fq() / 3);
+    }
+    this.osc.pan(constrain(map(this.x, width, 0, 0, 1), 0, 1));
+    if (this.isNoise) {
+      this.osc.amp(0.1, 1);
+    } else {
+      this.osc.amp(0.2, 1);
+    }
+
+    this.filter.freq(0);
+    if (this.isNoise) {
+      this.filter.gain(0.1);
+    }
+    this.osc.connect(this.filter);
+    this.filter.connect(compressor);
+    oscs.push(this.osc);
+  }
   this.a = brightness(startColor) > 20 ? 3 : 0;
   // this.r = map(startColor[2], 0, 255, 1, 100);
 
@@ -37,7 +86,7 @@ function Particle(x, y) {
 
     // const distX = mouseX - this.x;
     // const distY = mouseY - this.y;
-    const d = dist(mouseX, mouseY, this.x, this.y);
+    // const d = dist(mouseX, mouseY, this.x, this.y);
     // if (d < 25 && d > 10) {
     //   this.w -= 20;
     //   this.h -= 20;
@@ -68,9 +117,45 @@ function Particle(x, y) {
     if (this.y < 0) {
       this.y = height;
     }
-    // if (this.a < 3) {
-    //   this.a += 0.005;
-    // }
+
+    // osc debugger
+    if (this.osc && !isLoading) {
+      const c = img.get(this.x, this.y);
+      const [r, g, b] = c;
+      const noteIndex = Math.floor(map(g, 0, 255, 0, scale.notes().length * 3));
+      const newNote = scale.get(noteIndex);
+
+      this.osc.pan(constrain(map(this.x, 0, width, -1, 1), -1, 1), 1);
+      // const freqIndex = Math.floor(
+      //   map(this.y, 0, height, 0, scale.notes().length)
+      // );
+      // this.osc.freq(scale.get(freqIndex).fq(), 0.5);
+      if (!this.isNoise) {
+        this.osc.freq(newNote.fq() / 3 + (noiseVal * this.noiseAmt - 5), 2);
+      }
+      if (this.w) {
+        // console.log(this.w);
+        let freq = map(Math.abs(this.w), 0, 50, 20, 10000);
+        freq = constrain(freq, 0, 22050);
+        // console.log(freq);
+        this.filter.freq(freq, 0.5);
+      }
+
+      if (this.h) {
+        const vol = map(Math.abs(this.h), 0, 100, 0, 0.8);
+        // console.log("VOL", vol);
+        if (this.isNoise) {
+          this.osc.amp(vol * 0.1, 0.2);
+        } else {
+          this.osc.amp(vol, 0.5);
+        }
+      }
+
+      if (DEBUG_OSC) {
+        fill(255, 0, 0);
+        circle(this.x, this.y, 10);
+      }
+    }
   };
 
   this.show = function () {
@@ -92,13 +177,7 @@ function Particle(x, y) {
       vertex(this.x + this.w / 2, this.y + this.h / 2);
       vertexCount++;
     }
-    // const x = map(startColor[0], 0, 255, 0, width);
-    // ellipse(this.x, this.y, this.r, this.r);
-    // translate(width/2, height/2);
 
-    // if (c[0] > 150) {
-    //   image(randomSquare1, this.x, this.y, 20, 20);
-    // }
     if (SHOW_BACKGROUND) {
       rect(this.x, this.y, this.w, this.h);
     }
@@ -180,9 +259,22 @@ function mousePressed() {
   getNewImage();
 }
 
+function mouseMoved() {
+  const d = dist(mouseX, mouseY, width / 2, height / 2);
+  const dryWet = map(d, 0, width / 2, 0, 1);
+  const amp = map(d, 0, width / 2, 0.4, 1);
+  reverb.drywet(dryWet, 0.5);
+  reverb.amp(amp, 0.5);
+}
+
 const setImage = (newImg) => {
   img = newImg;
   clear();
+  oscs.forEach((osc) => {
+    osc.disconnect();
+  });
+  oscs.length = 0;
+  isLoading = false;
   // push();
   // fill(255);
   // background(255);
@@ -211,15 +303,24 @@ const setImage = (newImg) => {
 };
 
 const getNewImage = () => {
+  isLoading = true;
   console.log("loading new image...");
   const URL = "https://source.unsplash.com/random/";
   const w = Math.floor(random(CANVAS_W - 50, CANVAS_W + 50));
   const h = Math.floor(random(CANVAS_W - 50, CANVAS_W + 50));
+  oscs.forEach((osc) => {
+    osc.amp(0, 1);
+  });
+  // oscs.length = 0;
   loadImage(`${URL}${w}x${h}`, setImage);
 };
 
 function keyPressed() {
   if (key === "s") {
     save("texturizer.png");
+  }
+  if (key === " ") {
+    isPlaying = !isPlaying;
+    compressor.amp(isPlaying ? 1 : 0, 1);
   }
 }
